@@ -1,6 +1,6 @@
 ---
 title: WebHarvest OpenEnv
-emoji: :globe_with_meridians:
+emoji: globe_with_meridians
 colorFrom: orange
 colorTo: teal
 sdk: docker
