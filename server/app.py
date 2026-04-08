@@ -76,7 +76,11 @@ def _step_env(action_json: str) -> dict:
     except Exception as exc:
         return {"error": f"invalid_json: {exc}"}
     try:
-        response = httpx.post("http://127.0.0.1:8000/step", json=payload, timeout=5)
+        response = httpx.post(
+            "http://127.0.0.1:8000/step",
+            json={"action": payload},
+            timeout=5,
+        )
         return response.json()
     except Exception as exc:
         return {"error": str(exc)}
