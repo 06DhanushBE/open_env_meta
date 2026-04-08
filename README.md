@@ -1,8 +1,8 @@
 ---
 title: WebHarvest OpenEnv
-emoji: globe_with_meridians
-colorFrom: orange
-colorTo: teal
+emoji: 🌐
+colorFrom: blue
+colorTo: green
 sdk: docker
 pinned: false
 app_port: 8000
