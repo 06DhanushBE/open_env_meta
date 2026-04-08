@@ -136,7 +136,8 @@ async def run_episode(env: WebharvestEnv, task_name: str, model_name: str) -> No
         blocked = bool(last_obs.blocked)
 
     success = (not blocked) and extracted >= total_items
-    score = min(1.0, extracted / max(1, total_items))
+    raw_score = extracted / max(1, total_items)
+    score = min(0.99, max(0.01, raw_score))
 
     rewards_str = ",".join(format_reward(r) for r in rewards)
     print(
