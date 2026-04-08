@@ -1,6 +1,5 @@
 ﻿---
 title: WebHarvest OpenEnv
-emoji: ðŸŒ
 colorFrom: blue
 colorTo: green
 sdk: docker
@@ -128,4 +127,3 @@ Using the provided inference script with Llama-3-8B-Instruct:
 - **static_prices**: 1.00 (perfect extraction in 2 steps)
 - **dynamic_load**: 1.00 (perfect extraction in 3 steps)
 - **rate_limited**: 1.00 (perfect extraction in 10 steps, respecting limits)
-
