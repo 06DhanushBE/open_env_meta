@@ -48,7 +48,6 @@ except ModuleNotFoundError:
 import json
 
 import gradio as gr
-import httpx
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 
@@ -61,11 +60,18 @@ app = create_app(
     max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
 )
 
+# Separate env instance for the Gradio UI.
+ui_env = WebharvestEnvironment()
+
 
 def _reset_env() -> dict:
     try:
-        response = httpx.post("http://127.0.0.1:8000/reset", timeout=5)
-        return response.json()
+        obs = ui_env.reset()
+        return {
+            "observation": obs.model_dump(),
+            "reward": obs.reward,
+            "done": obs.done,
+        }
     except Exception as exc:
         return {"error": str(exc)}
 
@@ -76,14 +82,13 @@ def _step_env(action_json: str) -> dict:
     except Exception as exc:
         return {"error": f"invalid_json: {exc}"}
     try:
-        response = httpx.post(
-            "http://127.0.0.1:8000/step",
-            json={"action": payload},
-            timeout=5,
-        )
-        if response.headers.get("content-type", "").startswith("application/json"):
-            return response.json()
-        return {"error": response.text}
+        action = WebharvestAction(**payload)
+        obs = ui_env.step(action)
+        return {
+            "observation": obs.model_dump(),
+            "reward": obs.reward,
+            "done": obs.done,
+        }
     except Exception as exc:
         return {"error": str(exc)}
 
