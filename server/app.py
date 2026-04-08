@@ -48,6 +48,7 @@ except ModuleNotFoundError:
 import json
 
 import gradio as gr
+import pandas as pd
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 
@@ -79,24 +80,39 @@ def _summarize(result: dict) -> dict:
         return {"error": "summary_failed"}
 
 
-def _reset_env() -> dict:
+def _history_df(history: list[float]) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "step": list(range(1, len(history) + 1)),
+            "reward": history,
+        }
+    )
+
+
+def _reset_env(task_name: str, history: list[float]) -> tuple[dict, dict, pd.DataFrame, list[float]]:
     try:
+        if task_name == "auto":
+            if "WEBHARVEST_TASK" in os.environ:
+                os.environ.pop("WEBHARVEST_TASK")
+        else:
+            os.environ["WEBHARVEST_TASK"] = task_name
         obs = ui_env.reset()
         result = {
             "observation": obs.model_dump(),
             "reward": obs.reward,
             "done": obs.done,
         }
-        return {"result": result, "metrics": _summarize(result)}
+        history = [float(obs.reward)]
+        return result, _summarize(result), _history_df(history), history
     except Exception as exc:
-        return {"error": str(exc)}
+        return {"error": str(exc)}, {}, _history_df([]), []
 
 
-def _step_env(action_json: str) -> dict:
+def _step_env(action_json: str, history: list[float]) -> tuple[dict, dict, pd.DataFrame, list[float]]:
     try:
         payload = json.loads(action_json)
     except Exception as exc:
-        return {"error": f"invalid_json: {exc}"}
+        return {"error": f"invalid_json: {exc}"}, {}, _history_df(history or []), history or []
     try:
         action = WebharvestAction(**payload)
         obs = ui_env.step(action)
@@ -105,13 +121,21 @@ def _step_env(action_json: str) -> dict:
             "reward": obs.reward,
             "done": obs.done,
         }
-        return {"result": result, "metrics": _summarize(result)}
+        history = list(history or [])
+        history.append(float(obs.reward))
+        return result, _summarize(result), _history_df(history), history
     except Exception as exc:
-        return {"error": str(exc)}
+        return {"error": str(exc)}, {}, _history_df(history or []), history or []
 
 
 with gr.Blocks() as ui:
     gr.Markdown("# WebHarvest OpenEnv\nSimple controls for reset and step.")
+    with gr.Row():
+        task_selector = gr.Dropdown(
+            label="Task",
+            choices=["auto", "static_prices", "dynamic_load", "rate_limited"],
+            value="auto",
+        )
     with gr.Row():
         reset_btn = gr.Button("Reset")
         step_btn = gr.Button("Step")
@@ -123,11 +147,68 @@ with gr.Blocks() as ui:
         "Example step payloads: `{" +
         "\"tool\":\"bs4\",\"command\":\"extract_table\",\"params\":{}}`"
     )
+    with gr.Row():
+        btn_select_bs4 = gr.Button("Select BS4")
+        btn_extract_table = gr.Button("Extract Table")
+        btn_select_browser = gr.Button("Select Browser")
+        btn_click_load = gr.Button("Click Load More")
+    with gr.Row():
+        btn_extract_items = gr.Button("Extract Items")
+        btn_select_api = gr.Button("Select API")
+        btn_use_api = gr.Button("Use API")
+        btn_wait = gr.Button("Wait 2s")
     reset_out = gr.JSON(label="Reset Response")
     step_out = gr.JSON(label="Step Response")
     metrics_out = gr.JSON(label="Metrics")
-    reset_btn.click(_reset_env, outputs=[reset_out, metrics_out])
-    step_btn.click(_step_env, inputs=action_input, outputs=[step_out, metrics_out])
+    reward_chart = gr.LinePlot(
+        label="Reward Over Steps",
+        x="step",
+        y="reward",
+        height=240,
+    )
+    history_state = gr.State([])
+    reset_btn.click(
+        _reset_env,
+        inputs=[task_selector, history_state],
+        outputs=[reset_out, metrics_out, reward_chart, history_state],
+    )
+    step_btn.click(
+        _step_env,
+        inputs=[action_input, history_state],
+        outputs=[step_out, metrics_out, reward_chart, history_state],
+    )
+    btn_select_bs4.click(
+        lambda: '{"tool":"bs4","command":"select_tool","params":{"tool":"bs4"}}',
+        outputs=action_input,
+    )
+    btn_extract_table.click(
+        lambda: '{"tool":"bs4","command":"extract_table","params":{}}',
+        outputs=action_input,
+    )
+    btn_select_browser.click(
+        lambda: '{"tool":"browser","command":"select_tool","params":{"tool":"browser"}}',
+        outputs=action_input,
+    )
+    btn_click_load.click(
+        lambda: '{"tool":"browser","command":"click","params":{"selector":"button#load-more"}}',
+        outputs=action_input,
+    )
+    btn_extract_items.click(
+        lambda: '{"tool":"browser","command":"extract_items","params":{}}',
+        outputs=action_input,
+    )
+    btn_select_api.click(
+        lambda: '{"tool":"api","command":"select_tool","params":{"tool":"api"}}',
+        outputs=action_input,
+    )
+    btn_use_api.click(
+        lambda: '{"tool":"api","command":"use_api","params":{}}',
+        outputs=action_input,
+    )
+    btn_wait.click(
+        lambda: '{"tool":"none","command":"wait","params":{"seconds":2}}',
+        outputs=action_input,
+    )
     gr.Markdown("API docs: /docs | Health: /health")
 
 
@@ -136,24 +217,24 @@ app = gr.mount_gradio_app(app, ui, path="/ui/")
 
 @app.get("/")
 def root_redirect():
-        html = """
-        <!doctype html>
-        <html lang="en">
-            <head>
-                <meta charset="utf-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <title>WebHarvest OpenEnv</title>
-                <style>
-                    html, body { height: 100%; margin: 0; }
-                    iframe { width: 100%; height: 100%; border: 0; }
-                </style>
-            </head>
-            <body>
-                <iframe src="/ui/"></iframe>
-            </body>
-        </html>
-        """
-        return HTMLResponse(content=html)
+    html = """
+    <!doctype html>
+    <html lang="en">
+        <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>WebHarvest OpenEnv</title>
+            <style>
+                html, body { height: 100%; margin: 0; }
+                iframe { width: 100%; height: 100%; border: 0; }
+            </style>
+        </head>
+        <body>
+            <iframe src="/ui/"></iframe>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
 
 
 @app.get("/web")
