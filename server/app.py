@@ -49,7 +49,7 @@ import json
 
 import gradio as gr
 import httpx
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 
 # Create the app with web interface and README integration
@@ -103,12 +103,29 @@ app = gr.mount_gradio_app(app, ui, path="/ui/")
 
 @app.get("/")
 def root_redirect():
-    return RedirectResponse(url="/ui/")
+        html = """
+        <!doctype html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <title>WebHarvest OpenEnv</title>
+                <style>
+                    html, body { height: 100%; margin: 0; }
+                    iframe { width: 100%; height: 100%; border: 0; }
+                </style>
+            </head>
+            <body>
+                <iframe src="/ui/"></iframe>
+            </body>
+        </html>
+        """
+        return HTMLResponse(content=html)
 
 
 @app.get("/web")
 def web_redirect():
-    return RedirectResponse(url="/ui/")
+    return RedirectResponse(url="/")
 
 
 @app.get("/ui")
