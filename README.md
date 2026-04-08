@@ -1,6 +1,6 @@
----
+﻿---
 title: WebHarvest OpenEnv
-emoji: 🌐
+emoji: ðŸŒ
 colorFrom: blue
 colorTo: green
 sdk: docker
@@ -110,15 +110,15 @@ The deployed space provides:
 
 ```
 webharvest_env/
-├── client.py
-├── models.py
-├── openenv.yaml
-├── inference.py
-├── server/
-│   ├── app.py
-│   ├── webharvest_env_environment.py
-│   └── Dockerfile
-└── README.md
+â”œâ”€â”€ client.py
+â”œâ”€â”€ models.py
+â”œâ”€â”€ openenv.yaml
+â”œâ”€â”€ inference.py
+â”œâ”€â”€ server/
+â”‚   â”œâ”€â”€ app.py
+â”‚   â”œâ”€â”€ webharvest_env_environment.py
+â”‚   â””â”€â”€ Dockerfile
+â””â”€â”€ README.md
 ```
 
 ## Baseline Scores
@@ -128,3 +128,4 @@ Using the provided inference script with Llama-3-8B-Instruct:
 - **static_prices**: 1.00 (perfect extraction in 2 steps)
 - **dynamic_load**: 1.00 (perfect extraction in 3 steps)
 - **rate_limited**: 1.00 (perfect extraction in 10 steps, respecting limits)
+
