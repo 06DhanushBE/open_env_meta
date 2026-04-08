@@ -88,6 +88,14 @@ def landing_page():
         """
 
 
+@app.get("/web")
+def web_redirect():
+        """Compatibility redirect for HF logs panel."""
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(url="/")
+
+
 def _run(host: str, port: int) -> None:
     """Run the FastAPI server with uvicorn."""
     import uvicorn
