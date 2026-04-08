@@ -45,6 +45,13 @@ except ModuleNotFoundError:
     )
 
 
+import json
+
+import gradio as gr
+import httpx
+from fastapi.responses import RedirectResponse
+
+
 # Create the app with web interface and README integration
 app = create_app(
     WebharvestEnvironment,
@@ -55,45 +62,53 @@ app = create_app(
 )
 
 
+def _reset_env() -> dict:
+    try:
+        response = httpx.post("http://127.0.0.1:8000/reset", timeout=5)
+        return response.json()
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def _step_env(action_json: str) -> dict:
+    try:
+        payload = json.loads(action_json)
+    except Exception as exc:
+        return {"error": f"invalid_json: {exc}"}
+    try:
+        response = httpx.post("http://127.0.0.1:8000/step", json=payload, timeout=5)
+        return response.json()
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+with gr.Blocks() as ui:
+    gr.Markdown("# WebHarvest OpenEnv\nSimple controls for reset and step.")
+    with gr.Row():
+        reset_btn = gr.Button("Reset")
+        step_btn = gr.Button("Step")
+    action_input = gr.Textbox(
+        label="Action JSON",
+        value='{"tool":"bs4","command":"select_tool","params":{"tool":"bs4"}}',
+    )
+    reset_out = gr.JSON(label="Reset Response")
+    step_out = gr.JSON(label="Step Response")
+    reset_btn.click(_reset_env, outputs=reset_out)
+    step_btn.click(_step_env, inputs=action_input, outputs=step_out)
+    gr.Markdown("API docs: /docs | Health: /health")
+
+
+app = gr.mount_gradio_app(app, ui, path="/ui")
+
+
 @app.get("/")
-def landing_page():
-        """Simple landing page for quick verification in HF Spaces."""
-        return """
-        <!doctype html>
-        <html lang=\"en\">
-            <head>
-                <meta charset=\"utf-8\" />
-                <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-                <title>WebHarvest OpenEnv</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 32px; background: #0f172a; color: #e2e8f0; }
-                    .card { max-width: 720px; background: #111827; padding: 24px; border-radius: 12px; border: 1px solid #1f2937; }
-                    h1 { margin: 0 0 8px; font-size: 24px; }
-                    p { margin: 8px 0; line-height: 1.5; }
-                    code { background: #0b1220; padding: 2px 6px; border-radius: 6px; }
-                    a { color: #60a5fa; text-decoration: none; }
-                </style>
-            </head>
-            <body>
-                <div class=\"card\">
-                    <h1>WebHarvest OpenEnv</h1>
-                    <p>Environment server is running.</p>
-                    <p>Useful endpoints:</p>
-                    <p><code>POST /reset</code>, <code>POST /step</code>, <code>GET /state</code>, <code>GET /schema</code></p>
-                    <p>API docs: <a href=\"/docs\">/docs</a></p>
-                    <p>Health: <a href=\"/health\">/health</a></p>
-                </div>
-            </body>
-        </html>
-        """
+def root_redirect():
+    return RedirectResponse(url="/ui")
 
 
 @app.get("/web")
 def web_redirect():
-        """Compatibility redirect for HF logs panel."""
-        from fastapi.responses import RedirectResponse
-
-        return RedirectResponse(url="/")
+    return RedirectResponse(url="/ui")
 
 
 def _run(host: str, port: int) -> None:
