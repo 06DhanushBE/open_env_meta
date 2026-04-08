@@ -81,7 +81,9 @@ def _step_env(action_json: str) -> dict:
             json={"action": payload},
             timeout=5,
         )
-        return response.json()
+        if response.headers.get("content-type", "").startswith("application/json"):
+            return response.json()
+        return {"error": response.text}
     except Exception as exc:
         return {"error": str(exc)}
 
@@ -94,6 +96,10 @@ with gr.Blocks() as ui:
     action_input = gr.Textbox(
         label="Action JSON",
         value='{"tool":"bs4","command":"select_tool","params":{"tool":"bs4"}}',
+    )
+    step_hint = gr.Markdown(
+        "Example step payloads: `{" +
+        "\"tool\":\"bs4\",\"command\":\"extract_table\",\"params\":{}}`"
     )
     reset_out = gr.JSON(label="Reset Response")
     step_out = gr.JSON(label="Step Response")
