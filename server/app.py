@@ -98,17 +98,22 @@ with gr.Blocks() as ui:
     gr.Markdown("API docs: /docs | Health: /health")
 
 
-app = gr.mount_gradio_app(app, ui, path="/ui")
+app = gr.mount_gradio_app(app, ui, path="/ui/")
 
 
 @app.get("/")
 def root_redirect():
-    return RedirectResponse(url="/ui")
+    return RedirectResponse(url="/ui/")
 
 
 @app.get("/web")
 def web_redirect():
-    return RedirectResponse(url="/ui")
+    return RedirectResponse(url="/ui/")
+
+
+@app.get("/ui")
+def ui_redirect():
+    return RedirectResponse(url="/ui/")
 
 
 def _run(host: str, port: int) -> None:
