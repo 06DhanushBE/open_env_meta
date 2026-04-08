@@ -46,6 +46,7 @@ except ModuleNotFoundError:
 
 
 import json
+import os
 
 import gradio as gr
 import pandas as pd
@@ -63,6 +64,7 @@ app = create_app(
 
 # Separate env instance for the Gradio UI.
 ui_env = WebharvestEnvironment()
+ui_has_reset = False
 
 
 def _summarize(result: dict) -> dict:
@@ -90,6 +92,7 @@ def _history_df(history: list[float]) -> pd.DataFrame:
 
 
 def _reset_env(task_name: str, history: list[float]) -> tuple[dict, dict, pd.DataFrame, list[float]]:
+    global ui_has_reset
     try:
         if task_name == "auto":
             if "WEBHARVEST_TASK" in os.environ:
@@ -97,6 +100,7 @@ def _reset_env(task_name: str, history: list[float]) -> tuple[dict, dict, pd.Dat
         else:
             os.environ["WEBHARVEST_TASK"] = task_name
         obs = ui_env.reset()
+        ui_has_reset = True
         result = {
             "observation": obs.model_dump(),
             "reward": obs.reward,
@@ -109,6 +113,10 @@ def _reset_env(task_name: str, history: list[float]) -> tuple[dict, dict, pd.Dat
 
 
 def _step_env(action_json: str, history: list[float]) -> tuple[dict, dict, pd.DataFrame, list[float]]:
+    if not ui_has_reset:
+        return {
+            "error": "reset_required: click Reset before Step"
+        }, {}, _history_df(history or []), history or []
     try:
         payload = json.loads(action_json)
     except Exception as exc:
@@ -129,7 +137,11 @@ def _step_env(action_json: str, history: list[float]) -> tuple[dict, dict, pd.Da
 
 
 with gr.Blocks() as ui:
-    gr.Markdown("# WebHarvest OpenEnv\nSimple controls for reset and step.")
+    gr.Markdown(
+        "# WebHarvest OpenEnv\n"
+        "Use Reset to start an episode, then Step with actions. "
+        "Buttons fill the Action JSON box for you."
+    )
     with gr.Row():
         task_selector = gr.Dropdown(
             label="Task",
@@ -146,6 +158,11 @@ with gr.Blocks() as ui:
     step_hint = gr.Markdown(
         "Example step payloads: `{" +
         "\"tool\":\"bs4\",\"command\":\"extract_table\",\"params\":{}}`"
+    )
+    gr.Markdown(
+        "Button guide: Select tool → Extract. "
+        "Dynamic task: Select Browser → Click Load More → Extract Items. "
+        "Rate-limited: Select API → Use API → Wait 2s (repeat)."
     )
     with gr.Row():
         btn_select_bs4 = gr.Button("Select BS4")
