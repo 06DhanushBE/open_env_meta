@@ -64,14 +64,30 @@ app = create_app(
 ui_env = WebharvestEnvironment()
 
 
+def _summarize(result: dict) -> dict:
+    try:
+        obs = result.get("observation", {})
+        extracted = obs.get("extracted_items", [])
+        return {
+            "task": obs.get("task_name"),
+            "steps": obs.get("step_count"),
+            "extracted": len(extracted) if isinstance(extracted, list) else 0,
+            "reward": result.get("reward"),
+            "done": result.get("done"),
+        }
+    except Exception:
+        return {"error": "summary_failed"}
+
+
 def _reset_env() -> dict:
     try:
         obs = ui_env.reset()
-        return {
+        result = {
             "observation": obs.model_dump(),
             "reward": obs.reward,
             "done": obs.done,
         }
+        return {"result": result, "metrics": _summarize(result)}
     except Exception as exc:
         return {"error": str(exc)}
 
@@ -84,11 +100,12 @@ def _step_env(action_json: str) -> dict:
     try:
         action = WebharvestAction(**payload)
         obs = ui_env.step(action)
-        return {
+        result = {
             "observation": obs.model_dump(),
             "reward": obs.reward,
             "done": obs.done,
         }
+        return {"result": result, "metrics": _summarize(result)}
     except Exception as exc:
         return {"error": str(exc)}
 
@@ -108,8 +125,9 @@ with gr.Blocks() as ui:
     )
     reset_out = gr.JSON(label="Reset Response")
     step_out = gr.JSON(label="Step Response")
-    reset_btn.click(_reset_env, outputs=reset_out)
-    step_btn.click(_step_env, inputs=action_input, outputs=step_out)
+    metrics_out = gr.JSON(label="Metrics")
+    reset_btn.click(_reset_env, outputs=[reset_out, metrics_out])
+    step_btn.click(_step_env, inputs=action_input, outputs=[step_out, metrics_out])
     gr.Markdown("API docs: /docs | Health: /health")
 
 
